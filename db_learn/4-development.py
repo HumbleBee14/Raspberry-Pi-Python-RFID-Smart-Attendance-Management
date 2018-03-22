@@ -92,11 +92,19 @@ def connect_db():
     c=conn.cursor()
     time.sleep(1)
 
-def check_id(UID):
+def check_id():
     connect_db()
+    print(".......... SCAN YOUR CARD ...........\n")
+    reader = SimpleMFRC522.SimpleMFRC522()
+    uid, info = reader.read()
+    GPIO.cleanup()    
     try:
-        c.execute("SELECT * FROM table1 WHERE RFID=?",str(UID))
-        person=c.fetchall()
+        c.execute("SELECT * from student_db")  #Just to get Column Names first! #("SELECT * from "+str(tb)) 
+        info=next(zip(*c.description))  #To get list of Column Names of Table || Guess What? It took me 2 hours to get this NAME(only) code
+        print(info)
+        print("\n")
+        c.execute("SELECT * FROM student_db WHERE UID=?",[uid])
+        person=c.fetchone()
         c.close()
         conn.close()
         return print(person)
@@ -108,8 +116,17 @@ def check_id(UID):
         print("Connection Closed")
     finally:
         conn.close()
-    
-        
+
+def scan():
+    global c_uid,info
+    print("........ Scan RFID Card .........")
+    GPIO.setwarnings(False)
+    reader = SimpleMFRC522.SimpleMFRC522()
+    c_uid, info = reader.read()
+    print(c_uid)
+    print("\n")
+    return c_uid
+  
 def create_table():
     connect_db()
     x=input("Create Table for STUDENT(S) or  ATTENDANCE(A)? ==> ")
@@ -193,42 +210,47 @@ def watch_table():
     
 def update_table(ID):
     connect_db()
-    #for i in range(1,7):
-    c.execute("UPDATE table1 SET ATTENDANCE=1,Date=date('now'),Time=time('now') WHERE RFID=?",str(ID))   #Date=date('now')
-    conn.commit()  #Always Commit whenever changing AnyThing in Table
+    c.execute("UPDATE **** SET ATTENDANCE=1,Date=date('now'),Time=time('now') WHERE UID=?",str(ID))   #Date=date('now')
+    conn.commit()                           #Always Commit whenever changing AnyThing in Table
     print("Attendance Marked")
     print("Data Updated in Table")
     watch_table()
 
 def delete_data():
     connect_db()
-    c.execute("DELETE FROM table1 WHERE RFID=44")
+    rln=int(input("Enter Roll No. of Student to be Deleted : "))
+    c.execute("DELETE FROM student_db WHERE RollNo=?",[rln])
     conn.commit()
     print("Data Deleted")
     watch_table()
 
 def alter_table():
     connect_db()
-    c.execute("ALTER TABLE table1 ADD Attendance int DEFAULT 0")   #Adding New Column 'Time'
+    c.execute("ALTER TABLE student_db ADD D_O_B text  DEFAULT '0000-00-00'")   #Adding New Column 'D_O_B'
     print("New Column Added")
     watch_table()
     
 
-def get_attend(ID):
+def get_attend():
     connect_db()
-    c.execute("SELECT NULL FROM table1 WHERE EXISTS (SELECT * FROM table1 WHERE RFID=?)",str(ID))  #Just to Check if DATA EXISTS or NOT
+    ID=scan()
+    c.execute("SELECT NULL FROM student_db WHERE EXISTS (SELECT * FROM student_db WHERE UID=?)",[ID])  #Just to Check if DATA EXISTS or NOT
     status=c.fetchall()  
     
-    if status==[]:     # Note: '[]' represents EMPTY set=> Data Doesn't Exists
+    if status==[]:     # Note: '[]' represents EMPTY set=> Data Doesn't Exists OR USE c.fetchone & status==None
         print("Data Unavailable")
     else:
-        c.execute("SELECT Name FROM table1 WHERE RFID=?",str(ID))
-        disp=c.fetchall()
-        print(str(disp)+" PRESENT")
+        c.execute("SELECT Name FROM student_db WHERE UID=?",[ID])
+        nm=c.fetchone()
+        nme="".join(nm)         #To Convert Tuple in String
+        print(nme+" PRESENT")
+        c.execute("INSERT INTO attendance_db (RollNo,Name,UID,BRANCH,MONTH,DATE,CLASS1) SELECT RollNo,Name,UID,BRANCH,strftime('%m','now'),date('now'),1 FROM student_db WHERE UID=?",[ID])
+        conn.commit()
     c.close()
     conn.close()
     
-#Un_Comment the BELOW Functions as per the need ! :D
+#***********************************************************************#
+    
 print("\nCreate_Table()=1\n Data_Entry() =2\nUpdate_Table()=3\nDelete_Data() =4\nAlter_Table() =5\nWatch_Table() =6\n  Check_ID()  =7\nGet_Attend()  =8")
 p=int(input("\n\tENTER CHOICE : "))   
 if p==1:
@@ -244,9 +266,9 @@ elif p==5:
 elif p==6:
     watch_table()      #Tables: 'student_db'  OR 'attendance_db'
 elif p==7:
-    check_id(4)
+    check_id()
 elif p==8:
-    get_attend(4)
+    get_attend()
 else:
     print("Invaild Option")
 #............ EXPERIMENT AREA BELOW ...........#
