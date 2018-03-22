@@ -113,15 +113,14 @@ def check_id(UID):
 def create_table():
     connect_db()
     x=input("Create Table for STUDENT(S) or  ATTENDANCE(A)? ==> ")
-    if x=='S':
+    if x in('S','s'):
         c.execute("CREATE TABLE IF NOT EXISTS student_db (Name text NOT NULL,RollNo int NOT NULL UNIQUE,UID int UNIQUE,BRANCH text CHECK (BRANCH IN('CS','IT','EC','EE','ME','CV','PD')),DIVISION int CHECK (DIVISION IN(1,2)))")
         print("Student Table ('student_db') Created")
-        x='student_db'
-        watch_table(x)
-    elif x=='A':
+        watch_table()
+    elif x in('A','a'):
         c.execute("CREATE TABLE IF NOT EXISTS attendance_db (RollNo int NOT NULL UNIQUE,Name text NOT NULL,UID int UNIQUE,BRANCH text,MONTH text,DATE text,CLASS1 int DEFAULT 0,CLASS2 int DEFAULT 0,CLASS3 int DEFAULT 0,CLASS4 int DEFAULT 0,CLASS5 int DEFAULT 0,CLASS6 int DEFAULT 0)")
         print ("Attendance Table ('attendance_db') Created")
-        watch_table('attendance_db')
+        watch_table()
     else:
         print("Invalid Input")
 
