@@ -84,7 +84,7 @@ GPIO.cleanup()    #ALways Use it once & usually @ END
 print("DATE : "+str(datetime.date.today()))
 lcd.clear()
 lcd.message("DATE: "+str(datetime.date.today()))
-time.sleep(1)
+time.sleep(0.5)
 lcd.clear()
 
 
@@ -96,7 +96,7 @@ def connect_db():
     lcd.clear()
     lcd.message("    DATABASE\n ...CONNECTED...")
     c=conn.cursor()
-    time.sleep(1)
+    time.sleep(0.5)
     lcd.clear()
 
 def check_id():
@@ -150,6 +150,8 @@ def scan():
     reader = SimpleMFRC522.SimpleMFRC522()
     c_uid, info = reader.read()
     print(c_uid)
+    time.sleep(0.3)
+    lcd.clear()
     print("\n")
     return c_uid
   
@@ -157,11 +159,11 @@ def create_table():
     connect_db()
     x=input("Create Table for STUDENT(S) or  ATTENDANCE(A)? ==> ")
     if x in('S','s'):
-        c.execute("CREATE TABLE IF NOT EXISTS student_db (Name text NOT NULL,RollNo int NOT NULL UNIQUE,UID int UNIQUE,BRANCH text CHECK (BRANCH IN('CS','IT','EC','EE','ME','CV','PD')),DIVISION int CHECK (DIVISION IN(1,2)))")
+        c.execute("CREATE TABLE IF NOT EXISTS student_db (Name TEXT NOT NULL,RollNo INTEGER NOT NULL UNIQUE,UID INTEGER UNIQUE,BRANCH TEXT CHECK (BRANCH IN('CS','IT','EC','EE','ME','CV','PD')),DIVISION INTEGER CHECK (DIVISION IN(1,2)),SEMESTER INTEGER CHECK (SEMESTER IN(1,2,3,4,5,6)))")
         print("Student Table ('student_db') Created")
         watch_table()
     elif x in('A','a'):
-        c.execute("CREATE TABLE IF NOT EXISTS attendance_db (RollNo int NOT NULL UNIQUE,Name text NOT NULL,UID int UNIQUE,BRANCH text,MONTH text,DATE text,CLASS1 int DEFAULT 0,CLASS2 int DEFAULT 0,CLASS3 int DEFAULT 0,CLASS4 int DEFAULT 0,CLASS5 int DEFAULT 0,CLASS6 int DEFAULT 0)")
+        c.execute("CREATE TABLE IF NOT EXISTS attendance_db (RollNo INTEGER NOT NULL UNIQUE,SEMESTER INTEGER,Name TEXT NOT NULL,UID INTEGER UNIQUE,BRANCH TEXT,MONTH TEXT,DATE TEXT,CLASS1 INTEGER DEFAULT 0,CLASS2 INTEGER DEFAULT 0,CLASS3 INTEGER DEFAULT 0,CLASS4 INTEGER DEFAULT 0,CLASS5 INTEGER DEFAULT 0,CLASS6 INTEGER DEFAULT 0)")
         print ("Attendance Table ('attendance_db') Created")
         watch_table()
     else:
@@ -172,7 +174,7 @@ def data_entry():
     #Tdate=date.today()
     lcd.clear()
     lcd.message("    STUDENT   \n   DATA ENTRY   ")
-    time.sleep(1)
+    time.sleep(0.6)
         
     try:
         lcd.clear()
@@ -191,6 +193,11 @@ def data_entry():
         lcd.message(str(dv))
         time.sleep(0.5)
         lcd.clear()
+        lcd.message("SEMESTER: ")
+        sem=int(input("Enter SEMESTER[1-8] : "))
+        lcd.message(str(sem))
+        time.sleep(0.5)
+        lcd.clear()
         lcd.message("ROLL NO: ")
         roll=int(input("Enter Roll No : "))
         lcd.message(str(roll))
@@ -198,10 +205,10 @@ def data_entry():
         lcd.clear()
                         #GPIO.setwarnings(False)
         uid=scan()
-        lcd.message("uid:"+str(uid))
+        lcd.message("UID:"+str(uid))
         time.sleep(0.5)
         lcd.clear()
-        c.execute("INSERT INTO student_db (Name,RollNo,UID,BRANCH,DIVISION) VALUES (?,?,?,?,?)",[name,roll,uid,br,dv])  #NOTE:  [name] OR (name,)Without the comma, (name) is just a grouped expression, not a tuple, and thus the img string is treated as the input sequence,Which could bring Error without comma.You need to pass a tuple, and it's commas that make tuples, not parentheses.
+        c.execute("INSERT INTO student_db (Name,RollNo,UID,BRANCH,DIVISION,SEMESTER) VALUES (?,?,?,?,?,?)",[name,roll,uid,br,dv,sem])  #NOTE:  [name] OR (name,)Without the comma, (name) is just a grouped expression, not a tuple, and thus the img string is treated as the input sequence,Which could bring Error without comma.You need to pass a tuple, and it's commas that make tuples, not parentheses.
         conn.commit()
         print("Data Entered & Here is the Updated Table")    #date('now'),time('now')
         lcd.message("DATA ENTERED")
@@ -210,7 +217,7 @@ def data_entry():
         watch_table()
         GPIO.cleanup()
     except sqlite3.IntegrityError:
-        print("RFID or Roll No. Already Assigned To Other")
+        print("RFID or Roll No. Already Assigned To Other\n OR DATA WRONG ENTERED")
         lcd.clear()
         lcd.message("RFID or ROLL No.\nALREADY ASSIGNED")
         time.sleep(1)
@@ -218,8 +225,8 @@ def data_entry():
         GPIO.cleanup()
         c.close()
         conn.close()
-    #except:
-     #   print("There's some issue in Reading")
+    except:
+        print("There's some issue in Reading")
         
 def watch_table():
     connect_db()
@@ -228,14 +235,13 @@ def watch_table():
     k=str(input("Which Database?\nStudents:--> S\nAttendance:--> A\n \tType: "))
     if k in ('S','s'):
         tb='student_db'
-        c.execute("SELECT * from "+str(tb))  #Just to get Column Names first!
+        c.execute("SELECT * from student_db")  #Just to get Column Names first!
         info=next(zip(*c.description))  #To get list of Column Names of Table || Guess What? It took me 2 hours to get this NAME(only) code
         print(info)
         print("\n")
-    #rint("   "+info[0]+"   "+info[1]+"    "+info[2]+"        "+info[3]+"   "+info[4])
-        time.sleep(1)
-    
-        c.execute("SELECT * FROM "+str(tb)+" ORDER BY RollNo")  #WARNING: Note that taking as input string could be fatal-SQL Injection Attack
+    #print("   "+info[0]+"   "+info[1]+"    "+info[2]+"        "+info[3]+"   "+info[4])
+        
+        c.execute("SELECT * FROM student_db ORDER BY RollNo")  #WARNING: Note that taking as input string could be fatal-SQL Injection Attack
         data=c.fetchall()
     #print(data)    #To Watch whole Table in single line
         for row in data:
@@ -243,15 +249,15 @@ def watch_table():
         c.close()
         conn.close()
     elif k in  ('A','a'):
-        tb='attendance_db'
-        c.execute("SELECT * from "+str(tb))  #Just to get Column Names first!
+        
+        c.execute("SELECT * from attendance_db")  #Just to get Column Names first!
         info=next(zip(*c.description))  #To get list of Column Names of Table || Guess What? #HARDWORK
         print(info)
         print("\n")
     #rint("   "+info[0]+"   "+info[1]+"    "+info[2]+"        "+info[3]+"   "+info[4])
         time.sleep(1)
     
-        c.execute("SELECT * FROM "+str(tb)+" ORDER BY RollNo")  #WARNING: Note that taking as input string could be fatal-SQL Injection Attack
+        c.execute("SELECT * FROM attendance_db ORDER BY RollNo")  #WARNING: Note that taking as input string could be fatal-SQL Injection Attack
         data=c.fetchall()
     #print(data)    #To Watch whole Table in single line
         for row in data:
@@ -283,7 +289,7 @@ def update_table():
         conn.close()
         watch_table()
     else:
-        print("Unknown ID")
+        print("INVALID REQUEST")
     
 
 def delete_data():
@@ -303,9 +309,10 @@ def delete_data():
 
 def alter_table():
     connect_db()
-    c.execute("ALTER TABLE student_db ADD D_O_B text  DEFAULT '0000-00-00'")   #Adding New Column 'D_O_B'
-    print("New Column Added")
-    watch_table()
+    #c.execute("ALTER TABLE student_db ADD D_O_B text  DEFAULT '0000-00-00'")   #Adding New Column 'D_O_B'
+    #print("New Column Added")
+    print("SORRY, THIS FUNCTION HAS BEEN DISABLED BY OWNER")
+    #watch_table()
     
 
 def get_attend():
@@ -322,7 +329,7 @@ def get_attend():
             c.execute("SELECT Name FROM student_db WHERE UID=?",[ID])
             nm=c.fetchone()
             nme="".join(nm)         #To Convert Tuple in String
-            c.execute("INSERT INTO attendance_db (RollNo,Name,UID,BRANCH,MONTH,DATE,CLASS1) SELECT RollNo,Name,UID,BRANCH,strftime('%m','now'),date('now'),1 FROM student_db WHERE UID=?",[ID])
+            c.execute("INSERT INTO attendance_db (RollNo,SEMESTER,Name,UID,BRANCH,MONTH,DATE,CLASS1) SELECT RollNo,SEMESTER,Name,UID,BRANCH,strftime('%m','now'),date('now'),1 FROM student_db WHERE UID=?",[ID])
             conn.commit()
             lcd.clear()
             lcd.message(nme+" PRESENT")
