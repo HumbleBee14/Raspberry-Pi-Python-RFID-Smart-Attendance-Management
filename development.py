@@ -82,6 +82,10 @@ GPIO.cleanup()    #ALways Use it once & usually @ END
 #  ................. DATABASE SQLite Functions .................#
 
 print("DATE : "+str(datetime.date.today()))
+lcd.clear()
+lcd.message("DATE: "+str(datetime.date.today()))
+time.sleep(1)
+lcd.clear()
 
 
 def connect_db():
@@ -89,16 +93,16 @@ def connect_db():
     global c
     conn=sqlite3.connect('project.db')
     print("Connected To Database")
+    lcd.clear()
+    lcd.message("    DATABASE\n ...CONNECTED...")
     c=conn.cursor()
     time.sleep(1)
+    lcd.clear()
 
 def check_id():
     connect_db()
-    print(".......... SCAN YOUR CARD ...........\n")
-    lcd.message("SCAN YOUR CARD")
-    reader = SimpleMFRC522.SimpleMFRC522()
-    uid, info = reader.read()
-        
+    uid=scan()
+            
     try:
         c.execute("SELECT * from student_db")  #Just to get Column Names first! #("SELECT * from "+str(tb)) 
         inf=next(zip(*c.description))  #To get list of Column Names of Table
@@ -106,14 +110,20 @@ def check_id():
         print("\n")
         c.execute("SELECT * FROM student_db WHERE UID=?",[uid])
         person=c.fetchone()
-        print(person)
+        if person==None:
+            print("Not in Database")
+            lcd.clear()
+            lcd.message("  NOT AVAILABLE\nUPLOAD YOUR DATA")
+            time.sleep(2)
+        else:
+            
+            print(person)
+            lcd.clear()
+            lcd.message("Name: "+person[0])
+            lcd.message("\n"+str(person[3])+"-"+str(person[4])+"  RNo="+str(person[1]))
+            print("Name: "+person[0])
+            time.sleep(2)
         lcd.clear()
-        lcd.message("Name: "+person[0])
-        lcd.message("\n"+str(person[3])+"-"+str(person[4])+"  RNo="+str(person[1]))
-        print("Name: "+person[0])
-        time.sleep(2)
-        lcd.clear()
-        GPIO.cleanup()
         c.close()
         conn.close()
         
@@ -122,15 +132,20 @@ def check_id():
         print(e)
         c.close()
         conn.close()
-        lcd.clear()
         print("Connection Closed")
-    finally:
+        lcd.clear()
+        
+    finally:                       # It will eventually RUN for sure if everything comes without error in between
         conn.close()
         lcd.clear()
+        GPIO.cleanup()
+        
 
 def scan():
     global c_uid,info
     print("........ Scan RFID Card .........")
+    lcd.clear()
+    lcd.message(" Scan RFID Card \n")
     GPIO.setwarnings(False)
     reader = SimpleMFRC522.SimpleMFRC522()
     c_uid, info = reader.read()
@@ -155,29 +170,56 @@ def create_table():
 def data_entry():
     connect_db()
     #Tdate=date.today()
-    
+    lcd.clear()
+    lcd.message("    STUDENT   \n   DATA ENTRY   ")
+    time.sleep(1)
+        
     try:
-        name=input("Enter Student Name: ")
+        lcd.clear()
+        lcd.message("NAME: ")
+        name=str(input("Enter Student Name: "))
+        lcd.message(name)
+        time.sleep(0.5)
+        lcd.clear()
+        lcd.message("BRANCH: ")
         br=str(input("Enter Branch Code: "))
+        lcd.message(br)
+        time.sleep(0.5)
+        lcd.clear()
+        lcd.message("DIVISION(1/2): ")
         dv=int(input("Enter Division[1/2]: "))
+        lcd.message(str(dv))
+        time.sleep(0.5)
+        lcd.clear()
+        lcd.message("ROLL NO: ")
         roll=int(input("Enter Roll No : "))
-        print("........ Scan RFID Card .........")
-                #GPIO.setwarnings(False)
-        reader = SimpleMFRC522.SimpleMFRC522()
-        uid, info = reader.read()
+        lcd.message(str(roll))
+        time.sleep(0.5)
+        lcd.clear()
+                        #GPIO.setwarnings(False)
+        uid=scan()
+        lcd.message("uid:"+str(uid))
+        time.sleep(0.5)
+        lcd.clear()
         c.execute("INSERT INTO student_db (Name,RollNo,UID,BRANCH,DIVISION) VALUES (?,?,?,?,?)",[name,roll,uid,br,dv])  #NOTE:  [name] OR (name,)Without the comma, (name) is just a grouped expression, not a tuple, and thus the img string is treated as the input sequence,Which could bring Error without comma.You need to pass a tuple, and it's commas that make tuples, not parentheses.
         conn.commit()
         print("Data Entered & Here is the Updated Table")    #date('now'),time('now')
+        lcd.message("DATA ENTERED")
         time.sleep(1)
-        watch_table('student_db')
+        lcd.clear()
+        watch_table()
         GPIO.cleanup()
     except sqlite3.IntegrityError:
-        print("RFID Already Assigned To Other")
+        print("RFID or Roll No. Already Assigned To Other")
+        lcd.clear()
+        lcd.message("RFID or ROLL No.\nALREADY ASSIGNED")
+        time.sleep(1)
+        lcd.clear()
         GPIO.cleanup()
         c.close()
         conn.close()
-    except:
-        print("There's some issue in Reading")
+    #except:
+     #   print("There's some issue in Reading")
         
 def watch_table():
     connect_db()
@@ -219,21 +261,45 @@ def watch_table():
     else:
         print("Unknown Database / Invalid Input")
     
-def update_table(ID):
+def update_table():
     connect_db()
-    c.execute("UPDATE **** SET ATTENDANCE=1,Date=date('now'),Time=time('now') WHERE UID=?",str(ID))   #Date=date('now')
-    conn.commit()                           #Always Commit whenever changing AnyThing in Table
-    print("Attendance Marked")
-    print("Data Updated in Table")
-    watch_table()
+    o=input("Update by Roll No.'(N)' OR RFID '(R)' :")
+    if o in ('N','n'):
+        ID=input("Enter Roll No. to be UPDATED :")
+        #cl=input("\nEnter Class to be Updated(1-6) : ")    #NOTE: We can't pass Column name using '?',so use IF-ELSE
+        c.execute("UPDATE attendance_db SET CLASS1=1 WHERE RollNo=?",[ID])   #Date=date('now')
+        conn.commit()                           #Always Commit whenever changing AnyThing in Table
+        print("Data Updated in Table")
+        c.close()
+        conn.close()
+        watch_table()
+    elif o in ('R','r'):
+        ID=scan()
+        #cl=input("Enter Class to be Updated(1-6) : ")
+        c.execute("UPDATE attendance_db SET CLASS1=1 WHERE UID=?",[ID])   # SET ,Date=date('now'),Time=time('now'),
+        conn.commit()                           #Always Commit whenever changing AnyThing in Table
+        print("Data Updated in Table")
+        c.close()
+        conn.close()
+        watch_table()
+    else:
+        print("Unknown ID")
+    
 
 def delete_data():
     connect_db()
+    lcd.clear()
+    lcd.message("Enter Roll No \nto be DELETED:")
     rln=int(input("Enter Roll No. of Student to be Deleted : "))
+    lcd.clear()
     c.execute("DELETE FROM student_db WHERE RollNo=?",[rln])
     conn.commit()
     print("Data Deleted")
+    lcd.message("DELETED")
+    time.sleep(0.3)
+    lcd.clear()
     watch_table()
+    GPIO.cleanup()
 
 def alter_table():
     connect_db()
@@ -258,15 +324,21 @@ def get_attend():
             nme="".join(nm)         #To Convert Tuple in String
             c.execute("INSERT INTO attendance_db (RollNo,Name,UID,BRANCH,MONTH,DATE,CLASS1) SELECT RollNo,Name,UID,BRANCH,strftime('%m','now'),date('now'),1 FROM student_db WHERE UID=?",[ID])
             conn.commit()
+            lcd.clear()
+            lcd.message(nme+" PRESENT")
             print(nme+" PRESENT")
-                        
-        except sqlite3.IntegrityError:
-            print("RFID Already Scanned")
-            lcd.message("Already Scanned")
-            time.sleep(2)
+            time.sleep(1)
             lcd.clear()
             GPIO.cleanup()
-                    
+                                    
+        except sqlite3.IntegrityError:
+            print("RFID Already Scanned")
+            lcd.clear()
+            lcd.message("Already Scanned")
+            time.sleep(1)
+            lcd.clear()
+            GPIO.cleanup()
+                                
     c.close()
     conn.close()
     
